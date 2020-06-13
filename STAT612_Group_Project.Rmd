@@ -1,0 +1,274 @@
+---
+title       : Determining the impact of air pollution on COVID19 Mortality and Incidence Rate in the US
+subtitle    : 
+author      : Courtney Stoner, Katherine Lee, Steven Tomey, Lesley Chapman
+job         : STAT612 Group Project
+framework   : io2012        # {io2012, html5slides, shower, dzslides, ...}
+highlighter : highlight.js  # {highlight.js, prettify, highlight}
+hitheme     : tomorrow      # 
+widgets     : []            # {mathjax, quiz, bootstrap}
+mode        : selfcontained # {standalone, draft}
+knit        : slidify::knit2slides
+ext_widgets : {rCharts: [libraries/nvd3]}
+output:
+  flexdashboard::flex_dashboard:
+    orientation: rows
+
+---
+```{r, include=FALSE}
+#install.packages("flexdashboard")
+library(tidyverse)
+library(ggplot2)
+library(flexdashboard)
+```
+
+
+```{r, include=FALSE}
+#loading csv of air quality files from 2015 - 2019
+aqi2015_2019 <- read.csv("aqi2015_2019.csv")
+
+#loading covid data from 6.6.20
+covid66 <- read.csv("06-06-2020.csv")
+
+#merging the two files together - one line per county
+air5covid <- merge(aqi2015_2019, covid66, by.x = "countystate", by.y = "Combined_Key")
+
+colnames(air5covid)
+```
+
+
+```{r, include=FALSE}
+#adding additional columns 
+
+air5covid %>%
+  group_by(countystate) %>%
+  mutate(pct_unhealthy = (unhealthy_sens_days + unhealthy_days + v_unhealthy_days + haz_days) / days_w_aqi,
+         mortality_rate = Deaths/Confirmed) %>%
+  arrange(pct_unhealthy) -> air5covid_1
+
+air5covid_1 %>%
+  group_by(countystate) %>%
+  mutate(totalaqi = sum(days_w_aqi),
+         avg_med_aqi = median(median_aqi),
+         avg_90_pct = mean(X90th_pct_aqi),
+         avg_max_aqi = mean(max_aqi),
+         avg_good = mean(good_days),
+         avg_mod = mean(mod_days),
+         avg_unhealthy_sens_days = mean(unhealthy_sens_days),
+         avg_unhealthy_days = mean(unhealthy_days),
+         avg_v_unhealthy_days = mean(v_unhealthy_days),
+         avg_haz_days = mean(haz_days),
+         avg_co = mean(days_co),
+         avg_no2 = mean(days_no2),
+         avg_days_ozone = mean(days_ozone),
+         avg_days_so2 = mean(days_so2),
+         avg_days_pm2 = mean(days_pm2),
+         avg_days_pm10 = mean(days_pm10),
+         avg_pct_unhealthy = (avg_unhealthy_sens_days + avg_unhealthy_days + avg_v_unhealthy_days + avg_haz_days) / totalaqi) -> air5covid_2
+```
+
+```{r, error=FALSE, warning=FALSE, include=FALSE}
+#distribution of the mortality rate, and the average percent of unhealthy days counted
+
+mort_rt_bxplt <- ggplot(air5covid_2, mapping = aes(y = mortality_rate)) + 
+  geom_boxplot()+
+  scale_y_log10()
+
+pct_unhealthy_bxplt <- ggplot(air5covid_2, mapping = aes(y = avg_pct_unhealthy)) + 
+  geom_boxplot()+
+  scale_y_log10()
+```
+---
+
+---
+## Introduction
+
+> - Provide as much information about what you know about the data as you can. Are the measures quantitative or categorical? 
+> - What are the research questions? 
+
+---
+
+---
+## Hypotheses
+
+> - **H1**: A higher percentage of bad air quality (AQI) days is associated with a higher mortality rate 
+> - **H2**: A higher percentage of bad air quality days is associated with a higher incident rate (Kat)
+> - **H3**: Each pollutant (CO, NO2, Ozone, SO2, PM2.5, PM10, Air Quality Index) has a different (or same) effect on mortality rate
+> - **H4**: Each pollutant (CO, NO2, Ozone, SO2, PM2.5, PM10, Air Quality Index) has a different (or same) effect on incident rate? 
+
+---
+
+
+--- &twocol
+
+## Exploratory Data Analysis
+
+Distribution of mortality rate and the average percent of unhealthy days counted
+
+*** =left
+
+```{r, error=FALSE, warning=FALSE, echo=FALSE, fig.width=7, fig.height=5}
+mort_rt_bxplt
+```
+
+*** =right
+
+```{r, error=FALSE, warning=FALSE, echo=FALSE, fig.width=7, fig.height=5}
+pct_unhealthy_bxplt
+```
+
+---
+
+
+--- &twocol
+*** =right
+Nationwide avg pct unhealthy days over 5 years and incidence rate, mortality rate
+
+*** =left
+
+```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+air5covid_2 %>%
+ggplot(air5covid_2, mapping = aes(x = avg_pct_unhealthy, y = Incidence_Rate)) +
+  geom_point()+
+  geom_smooth(method=lm)+
+  scale_x_log10() + 
+  theme_bw()
+```
+
+---
+
+--- .class #id
+```{r, include=FALSE}
+#linear regression
+lmout <- lm(data = air5covid_2, Incidence_Rate ~ avg_pct_unhealthy)
+summary(lmout)
+#p value .16 not enough evidence
+```
+---
+
+--- &twocol
+
+## Data-driven Hypotheses
+
+#### Evaluation of sampled states
+
+*** =right
+
+> - Pennyslvania, California, and Washington have positive correlations in incidence rate and average percent unhealthy days, while
+> - Texas and New York have negative correlations
+
+*** =left
+
+```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+air5covid_2 %>%
+  filter(state == "New York"| state == "California" | state == "Texas"| state == "Pennsylvania"| state == "Washington") %>%
+ggplot(air5covid_2, mapping = aes(x = avg_pct_unhealthy, y = mortality_rate, color = state)) +
+  geom_point()+
+  geom_smooth(method=lm)+
+  scale_x_log10() + 
+  theme_bw()
+```
+
+
+```{r, include=FALSE}
+#creating a new data frame with only PA, CA, and WA
+air5covid_2 %>%
+  filter(state == "Pennslvania"| state == "California" | state == "Washington") -> pacawa
+
+#new data frame, only NY CA and TX
+air5covid_2 %>%
+  filter(state == "New York"| state == "California" | state == "Texas") -> nycatx
+
+air5covid_2 %>%
+  filter(state == "Texas") -> texas
+
+air5covid_2 %>%
+  filter(state == "California") -> california
+
+air5covid_2 %>%
+  filter(state == "New York") -> newyork
+```
+
+---
+
+
+
+
+--- 
+
+
+> - PA, CA, and WA linear regression results
+> - not enough evidence to say that the pct unhealthy days is associated with an increased case fatality ratio (p value .839)
+> - There may be enough evidence to say that the pct unhealthy days is associated with the incidence rate (infections per 100,000 people)
+> - Pvalue for California is: 0.029
+
+
+```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE, include=FALSE}
+
+lmout <- lm(data = pacawa, `Case.Fatality_Ratio` ~ avg_pct_unhealthy)
+summary(lmout)
+
+lmout <- lm(data = pacawa, Incidence_Rate ~ avg_pct_unhealthy)
+summary(lmout)
+
+lmout <- lm(data = california, `Case.Fatality_Ratio` ~ avg_pct_unhealthy)
+summary(lmout)
+```
+---
+
+--- &twocol
+*** =right
+When plotting average of the median aqi against mortality rate. More states seem to have a positive correlation
+
+*** =left
+```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+air5covid_2 %>%
+  filter(state == "New York"| state == "California" | state == "Texas"| state == "Pennsylvania"| state == "Washington") %>%
+  ggplot(air5covid_2, mapping = aes(x = avg_med_aqi, y = mortality_rate, color = state)) +
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_bw()
+```
+---
+
+--- .class #id 
+```{r, include=FALSE}
+#linear regression of the above graph, but for all states
+lmout <- lm(data = air5covid_2, mortality_rate ~ avg_med_aqi)
+summary(lmout)
+```
+---
+
+--- &twocol
+*** =right
+> - Checked the same association with the average of the 90th percentile AQI over 5 yrs
+> - For all states, this one has a slight positive correlation but high p-value .187 
+
+*** =left
+
+```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+ggplot(air5covid_2, mapping = aes(x = avg_90_pct, y = mortality_rate)) +
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_bw()
+```
+
+```{r, include=FALSE}
+lmout <- lm(data = air5covid_2, mortality_rate ~ avg_90_pct)
+summary(lmout)
+```
+---
+
+
+--- .class #id 
+
+## Conclusions
+
+> - There could be enough evidence to say that the 5-year average of the median air quality is associated with higher mortality rates 
+
+> - This association could be true when considering every 1 additional increase to the avg of the 5yr med AQI is associated with a 0.000178 increase in the mortality rate
+
+> - The statistical tests as well as caveates within the data could also have influenced the results
+
+---
+

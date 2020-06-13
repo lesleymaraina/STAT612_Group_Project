@@ -1,0 +1,220 @@
+---
+title: "Project"
+author: "Courtney Stoner"
+date: "6/12/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#loading csv of air quality files from 2015 - 2019
+
+aqi2015_2019 <- read.csv("aqi2015_2019.csv")
+```
+
+
+```{r}
+#loading covid data from 6.6.20
+
+covid66 <- read.csv("06-06-2020.csv")
+```
+
+
+```{r}
+#merging the two files together - one line per county
+
+air5covid <- merge(aqi2015_2019, covid66, by.x = "countystate", by.y = "Combined_Key")
+
+```
+
+```{r}
+colnames(air5covid)
+```
+
+
+```{r}
+#adding additional columns 
+
+air5covid %>%
+  group_by(countystate) %>%
+  mutate(pct_unhealthy = (unhealthy_sens_days + unhealthy_days + v_unhealthy_days + haz_days) / days_w_aqi,
+         mortality_rate = Deaths/Confirmed) %>%
+  arrange(pct_unhealthy) -> air5covid_1
+
+air5covid_1 %>%
+  group_by(countystate) %>%
+  mutate(totalaqi = sum(days_w_aqi),
+         avg_med_aqi = median(median_aqi),
+         avg_90_pct = mean(X90th_pct_aqi),
+         avg_max_aqi = mean(max_aqi),
+         avg_good = mean(good_days),
+         avg_mod = mean(mod_days),
+         avg_unhealthy_sens_days = mean(unhealthy_sens_days),
+         avg_unhealthy_days = mean(unhealthy_days),
+         avg_v_unhealthy_days = mean(v_unhealthy_days),
+         avg_haz_days = mean(haz_days),
+         avg_co = mean(days_co),
+         avg_no2 = mean(days_no2),
+         avg_days_ozone = mean(days_ozone),
+         avg_days_so2 = mean(days_so2),
+         avg_days_pm2 = mean(days_pm2),
+         avg_days_pm10 = mean(days_pm10),
+         avg_pct_unhealthy = (avg_unhealthy_sens_days + avg_unhealthy_days + avg_v_unhealthy_days + avg_haz_days) / totalaqi) -> air5covid_2
+```
+
+```{r}
+#distribution of the mortality rate, and the average percent of unhealthy days counted
+
+ggplot(air5covid_2, mapping = aes(y = mortality_rate)) + 
+  geom_boxplot()+
+  scale_y_log10()
+
+ggplot(air5covid_2, mapping = aes(y = avg_pct_unhealthy)) + 
+  geom_boxplot()+
+  scale_y_log10()
+```
+
+```{r}
+#nationwide avg pct unhealthy days over 5 years and incidence rate, mortality rate
+
+air5covid_2 %>%
+ggplot(air5covid_2, mapping = aes(x = avg_pct_unhealthy, y = Incidence_Rate)) +
+  geom_point()+
+  geom_smooth(method=lm)+
+  scale_x_log10() + 
+  theme_bw()
+```
+maybe a positive correlation
+
+```{r}
+air5covid_2 %>%
+ggplot(air5covid_2, mapping = aes(x = avg_pct_unhealthy, y = mortality_rate)) +
+  geom_point()+
+  geom_smooth(method=lm)+
+  scale_x_log10() + 
+  theme_bw()
+```
+
+maaaybe a positive correlation
+```{r}
+#linear regression
+lmout <- lm(data = air5covid_2, Incidence_Rate ~ avg_pct_unhealthy)
+summary(lmout)
+#p value .16 not enough evidence
+```
+
+
+```{r}
+#filter to look at a handful of different states
+
+air5covid_2 %>%
+  filter(state == "New York"| state == "California" | state == "Texas"| state == "Pennsylvania"| state == "Washington") %>%
+ggplot(air5covid_2, mapping = aes(x = avg_pct_unhealthy, y = mortality_rate, color = state)) +
+  geom_point()+
+  geom_smooth(method=lm)+
+  scale_x_log10() + 
+  theme_bw()
+```
+You can see that for Pennyslvania, California, and Washington, they have positive correlations. Texas and New York have negative correlations
+
+
+```{r}
+#graphing the incidence rate against the percent of unhealthy days for these 5 states
+
+air5covid_2 %>%
+  filter(state == "New York"| state == "California" | state == "Texas"| state == "Pennsylvania"| state == "Washington") %>%
+ggplot(air5covid_2, mapping = aes(x = avg_pct_unhealthy, y = Incidence_Rate, color = state)) +
+  geom_point()+
+  geom_smooth(method=lm)+
+  scale_x_log10() + 
+  theme_bw()
+```
+
+Pretty much all of these have a positive correlation, actually
+
+```{r}
+#creating a new data frame with only PA, CA, and WA
+air5covid_2 %>%
+  filter(state == "Pennslvania"| state == "California" | state == "Washington") -> pacawa
+
+#new data frame, only NY CA and TX
+air5covid_2 %>%
+  filter(state == "New York"| state == "California" | state == "Texas") -> nycatx
+
+air5covid_2 %>%
+  filter(state == "Texas") -> texas
+
+air5covid_2 %>%
+  filter(state == "California") -> california
+
+air5covid_2 %>%
+  filter(state == "New York") -> newyork
+```
+
+
+```{r}
+#did a linear regression analysis, notice this is only for PA, CA, and WA
+
+lmout <- lm(data = pacawa, `Case-Fatality_Ratio` ~ avg_pct_unhealthy)
+summary(lmout)
+
+#looks like there's not enough evidence to say that the pct unhealthy days is associated with an increased case fatality ratio (p value .839)
+
+lmout <- lm(data = pacawa, Incidence_Rate ~ avg_pct_unhealthy)
+summary(lmout)
+
+#but there does seem to be evidence to say that the pct unhealthy days is associated with the incidence rate (infections per 100,000 people)
+```
+
+
+```{r}
+lmout <- lm(data = california, `Case-Fatality_Ratio` ~ avg_pct_unhealthy)
+summary(lmout)
+
+#just cali, p value .029 - not good enough
+```
+
+
+
+
+```{r}
+#graphing the average of the median aqi against mortality rate, this one seems like most have a positive correlation
+
+
+air5covid_2 %>%
+  filter(state == "New York"| state == "California" | state == "Texas"| state == "Pennsylvania"| state == "Washington") %>%
+  ggplot(air5covid_2, mapping = aes(x = avg_med_aqi, y = mortality_rate, color = state)) +
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_bw()
+```
+
+
+```{r}
+#linear regression of the above graph, but for all states
+
+lmout <- lm(data = air5covid_2, mortality_rate ~ avg_med_aqi)
+summary(lmout)
+```
+
+Seems like there is evidence to say that the 5-year average of the median air quality is associated with higher mortality rates (for every 1 additional increase to the avg of the 5yr med AQI is associated with a 0.000178 increase in the mortality rate)
+
+This is a complicated and honestly probably a bad statistic though
+
+
+```{r}
+#checking this same thing with the average of the 90th percentile AQI over 5 yrs, for all states, this one has a slight positive correlation but high p-value .187 
+
+ggplot(air5covid_2, mapping = aes(x = avg_90_pct, y = mortality_rate)) +
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_bw()
+
+lmout <- lm(data = air5covid_2, mortality_rate ~ avg_90_pct)
+summary(lmout)
+```
+
+
