@@ -1,5 +1,5 @@
 ---
-title       : Determining the impact of air pollution on COVID19 Mortality and Incidence Rate in the US
+title       : Air Quality and COVID-19 Mortality and Incidence Rates 
 subtitle    : 
 author      : Courtney Stoner, Katherine Lee, Steven Tomey, Lesley Chapman
 job         : STAT612 Group Project
@@ -83,10 +83,25 @@ pct_unhealthy_bxplt <- ggplot(air5covid_2, mapping = aes(y = avg_pct_unhealthy))
 ---
 ## Introduction
 
-> - Provide as much information about what you know about the data as you can. Are the measures quantitative or categorical? 
-> - What are the research questions? 
+**Project Aim**
+> - Compare the average percentage of unhealthy air quality days of each county to its COVID-19 mortality and incidence rates
+
+**Data**
+> - Annual summaries of recorded Air Quality Index (AQI) for each county within the United States from the years 2015-2019 
+> - COVID-19 mortality and incidence rates per country as of June 6th, 2020
+> - Unhealthy days are defined as days where the AQI is greater than 101
 
 ---
+
+
+---
+## Research Questions
+
+> - Are counties with poorer air quality more likely to have higher COVID-19 mortality and incident rates? 
+>- Do the effects of specific air pollutants on COVID-19 mortality and incident rates vary?
+
+---
+
 
 ---
 ## Hypotheses
@@ -122,7 +137,7 @@ pct_unhealthy_bxplt
 
 --- &twocol
 *** =right
-Nationwide avg pct unhealthy days over 5 years and incidence rate, mortality rate
+Nationwide Average Percentage of Unhealthy Days over 5 Years and Incidence Rate/Mortality Rate
 
 *** =left
 
